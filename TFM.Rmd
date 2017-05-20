@@ -1,0 +1,177 @@
+---
+title: "Kaggle Competition"
+author: "Javier Ortiz"
+date: "16 de Mayo de 2017"
+output: 
+  word_document: null
+  html_document: default
+  number_sections: yes
+  theme: cosmo
+  highlight: default
+---
+
+******
+## Introduction with the aim to predict the price
+******
+Load libraries
+```{r libraries, include=FALSE}
+library(ggplot2)
+library(data.table)
+library(caret)
+library(kableExtra)
+library(xtable)
+```
+
+******
+## Load data and descriptive analysis dataset
+******
+
+```{r descriptive, echo=FALSE}
+# Load data dataset macro, train and test
+macro <- read.table(file="input/macro.csv", header=TRUE, sep=",")
+
+train <- read.table(file="input/train.csv", header=TRUE, sep=",")
+
+test <- read.table(file="input/test.csv", header=TRUE, sep=",")
+
+test_macro <- merge(test,macro,"timestamp")
+
+#Comprobatio that the sum of rows and the number of variables is right
+dim(test_macro)
+
+#Sum up dataset
+summary(test_macro)
+```
+
+******
+## Análisis exploratorio apoyado en algún método NO supervisado (Clustering)
+******
+Normalización de atributos
+```{r exploratory,eval=TRUE, echo=FALSE}
+#Elijo solo varibles númericas
+test_macro_mod <- subset(test_macro,select = c(age,Medu,Fedu,traveltime,studytime,failures,famrel,freetime,goout,G1,G2,G3))
+
+#Realizamos 15 iteraciones empleando y empleando el indicador withniss obtendremos la suma de los cuadrados de las distancias entre los centros determinados por el algoritmo kmeans y los puntos que están dentro de cada cluster.
+kmeans(test_macro_mod,centers=9)$tot.withinss
+wss <- (nrow(test_macro_mod)-1)*sum(apply(test_macro_mod,2,var))
+  for (i in 2:15) wss[i] <- sum(kmeans(test_macro_mod,
+                                       centers=i)$withinss)
+
+#Dibujamos el gráfico para ver cual es el número de clústers más correctos para elegir
+plot(1:15, wss, type="b", xlab="Numero de Clusters",
+     ylab="Sumas de cuadrados dentro de los grupos",
+     main="Num de clusters óptimos",
+     pch=20, cex=2)
+
+kmeans.result <- kmeans(test_macro_mod, centers=5)
+centros <- kmeans.result$centers[kmeans.result$cluster,]
+distancias <- sqrt(rowSums((test_macro_mod - centros)^2))
+outliers <- order(distancias, decreasing=T)[1:5]
+students_mod[outliers,]
+
+#Detección de outliers
+plot(test_macro_mod[,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], main="Detección de outliers", pch="o",
+col=kmeans.result$cluster, cex=0.3)
+points(kmeans.result$centers[,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], col=1:5, pch=8, cex=1.5)
+points(test_macro_mod[outliers,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], col=4, pch="+", cex=1.5)
+points(matrix(colMeans(test_macro_mod),nrow=1,ncol=2),cex=3,col=12,pch=19)
+```
+
+******
+## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (Prototype modelo (KNN))
+******
+```{r reg_lineal, echo=FALSE}
+sapply(test_macro_mod,function(x) sum(is.na(x)))
+sapply(test_macro_mod,function(x) length(unique(x)))
+test_macro_mod$Class <- factor(ifelse(test_macro_mod$G3<10, "SUS", "APR"))
+
+#Creamos la partición tanto para entrenamiento y para test 
+train.sample <- createDataPartition(test_macro_mod$Class, p=0.8, list = F)
+train.test_macro_mod <- test_macro_mod[train.sample,]
+test.test_macro_mod <- test_macro_mod[ -train.sample,]
+
+#Buscamos las variables que no aportan al clasificador.
+zero.var.train.students_mod <- nearZeroVar(train.students_mod[, -dim(train.students_mod)[2]], saveMetrics = F)
+colnames(train.students_mod)[zero.var.train.students_mod]
+
+#Variables que tienen correlación.
+cor.train.students_mod.matrix <- cor( train.students_mod[, -dim(train.students_mod)[2]] )
+cor.train.students_mod.index <- findCorrelation(cor.train.students_mod.matrix, 0.80)
+
+cor.train.students_mod <- train.students_mod[, -cor.train.students_mod.index]
+cor.test.students_mod <- test.students_mod[, -cor.train.students_mod.index]
+
+xTrans.students_mod <- preProcess(cor.train.students_mod[, -dim(cor.train.students_mod)[2]])
+train.students_mod.prep <- predict( xTrans.students_mod, cor.train.students_mod[,-dim(cor.train.students_mod)[2]])
+train.students_mod.prep$Class <- cor.train.students_mod$Class
+
+test.students_mod.prep <- predict( xTrans.students_mod, cor.test.students_mod[,-dim(cor.test.students_mod)[2]])
+test.students_mod.prep$Class <- cor.test.students_mod$Class
+
+# Remuestreamos el conjunto de entreno
+knn.control <- trainControl(method="repeatedcv", repeats = 5)
+
+#Entrenamos el modelo
+knn.students_mod.model <- train(x=train.students_mod.prep[,-dim(train.students_mod.prep)[2]], y=train.students_mod.prep$Class, method="knn", tuneLength = 10, trControl = knn.control)
+
+#Mostramos el modelo resultante
+knn.students_mod.model
+
+#Mostramos mediante un gráfico la metrica Accuracy
+knnplot <- plot(knn.students_mod.model, metric="Accuracy")
+print(knnplot)
+
+#
+knn.students_mod.test <- predict(knn.students_mod.model, newdata = test.students_mod.prep[,-dim(train.students_mod.prep)[2]])
+
+#Matriz de confusión.
+confusionMatrix(knn.students_mod.test,test.students_mod.prep$Class)
+
+#Se da valor si es aprobado o supendido (1,0)
+pr <- prediction(ifelse(knn.students_mod.test == 'APR',1,0), ifelse(test.students_mod.prep$Class == 'APR',1,0))
+
+#Mostramos el rendimiento del modelo mediante un gráfico
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+```
+
+******
+## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (ROC-Based Classifier)
+******
+Realizamos las misma operaciones que para el primer modelo
+```{r ROC, echo=FALSE}
+roc.control <- trainControl(method="repeatedcv", repeats = 5)
+
+roc.students_mod.model <- train(x=train.students_mod.prep[,-dim(train.students_mod.prep)[2]], y=train.students_mod.prep$Class, method="rocc", tuneLength = 10, trControl = roc.control)
+
+roc.students_mod.model
+
+rocplot <- plot(roc.students_mod.model, metric="Accuracy")
+print(rocplot)
+
+roc.students_mod.test <- predict(roc.students_mod.model, newdata = test.students_mod.prep[,-dim(train.students_mod.prep)[2]])
+
+confusionMatrix(roc.students_mod.test,test.students_mod.prep$Class)
+
+pr <- prediction(ifelse(roc.students_mod.test == 'APR' ,1,0), ifelse(test.students_mod.prep$Class == 'APR',1,0))
+
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+```
+
+******
+## Evaluación y comparación de dichos modelos realizados
+******
+Gracias al paquete Caret podremos comparar los modelos.
+```{r comparation, echo=FALSE}
+models <- list(knn.students_mod.model, roc.students_mod.model)
+compar.models <- resamples(models)
+summary(compar.models)
+```
+******
+## Gráficos
+******
+Mediante el gráfico podemos ver como el modelo 2 (ROC-Based Classifier) tiene una precisión mayor que el primer modelo.
+```{r graphics, echo=FALSE}
+dotplot(compar.models)
+```
