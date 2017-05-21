@@ -28,11 +28,14 @@ library(xtable)
 
 ```{r descriptive, echo=FALSE}
 # Load data dataset macro, train and test
-macro <- read.table(file="input/macro.csv", header=TRUE, sep=",")
+directorio_trabajo <- setwd("C:/Users/Javier Ortiz/Desktop/Master Big Data/TFM/TFM-UEMC/Estudio preliminar")
+getwd()
 
-train <- read.table(file="input/train.csv", header=TRUE, sep=",")
+macro <- read.table(file="Estudio preliminar/Datos/macro.csv", header=TRUE, sep=",")
 
-test <- read.table(file="input/test.csv", header=TRUE, sep=",")
+train <- read.table(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",")
+
+test <- read.table(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",")
 
 test_macro <- merge(test,macro,"timestamp")
 
