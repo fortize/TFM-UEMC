@@ -1,7 +1,7 @@
 ---
 title: "TFM"
 author: "Javier Ortiz"
-date: "16 de Mayo de 2017"
+date: "30 de Junio de 2017"
 output: 
   word_document: null
   html_document: default
@@ -42,13 +42,13 @@ train <- fread(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",", 
 
 test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na.strings="NA")
 
-test_macro <- merge(test,macro,"timestamp")
+train_macro <- merge(train,macro,"timestamp")
 
 #Comprobatio that the sum of rows and the number of variables is right
-dim(test_macro)
+dim(train_macro)
 
 #Sum up dataset
-summary(test_macro)
+summary(train_macro)
 ```
 
 ******
@@ -57,12 +57,12 @@ summary(test_macro)
 Normalización de atributos
 ```{r exploratory,eval=TRUE, echo=FALSE}
 #Elijo solo varibles númericas
-test_macro_mod <- subset(test_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,green_zone_part,indust_part))
+train_macro_mod <- subset(train_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,green_zone_part,indust_part,price_doc))
 
 #Realizamos 15 iteraciones empleando y empleando el indicador withniss obtendremos la suma de los cuadrados de las distancias entre los centros determinados por el algoritmo kmeans y los puntos que están dentro de cada cluster.
-kmeans(test_macro_mod,centers=9)$tot.withinss
-wss <- (nrow(test_macro_mod)-1)*sum(apply(test_macro_mod,2,var))
-  for (i in 2:15) wss[i] <- sum(kmeans(test_macro_mod,
+kmeans(train_macro_mod,centers=9)$tot.withinss
+wss <- (nrow(test_macro_mod)-1)*sum(apply(train_macro_mod,2,var))
+  for (i in 2:15) wss[i] <- sum(kmeans(train_macro_mod,
                                        centers=i)$withinss)
 
 #Dibujamos el gráfico para ver cual es el número de clústers más correctos para elegir
