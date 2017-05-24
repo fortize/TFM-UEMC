@@ -25,6 +25,8 @@ if(! "kableExtra" %in% installed.packages()) install.packages("kableExtra",depen
 library(kableExtra)
 if(! "xtable" %in% installed.packages()) install.packages("xtable",dependencies = TRUE)
 library(xtable)
+rm(list = ls());
+gc();
 ```
 
 ******
@@ -42,13 +44,30 @@ train <- fread(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",", 
 
 test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na.strings="NA")
 
-train_macro <- merge(train,macro,"timestamp")
+test_macro <- merge(test,macro,"timestamp")
 
 #Comprobatio that the sum of rows and the number of variables is right
-dim(train_macro)
+dim(test_macro)
 
 #Sum up dataset
-summary(train_macro)
+summary(test_macro)
+```
+
+******
+## Clean dataset
+******
+test$full_sq[is.na(test$full_sq)] <- 0
+test$life_sq[is.na(test$life_sq)] <- 0
+test$build_year[is.na(test$build_year)] <- 0
+test$floor[is.na(test$floor)] <- 0
+test$max_floor[is.na(test$max_floor)] <- 0
+test$num_room[is.na(test$num_room)] <- 0
+test$kitch_sq[is.na(test$kitch_sq)] <- 0
+test$state[is.na(test$state)] <- 0
+
+```{r clean, echo=FALSE}
+# Clean dataset train_macro
+
 ```
 
 ******
@@ -56,13 +75,19 @@ summary(train_macro)
 ******
 Normalización de atributos
 ```{r exploratory,eval=TRUE, echo=FALSE}
+
+#Gráficos
+plot(train$full_sq, train$price_doc, main = "Full-sq Price", pch=20)
+
+#Matriz de correlación mod3 u1 pág 115
+
 #Elijo solo varibles númericas
-train_macro_mod <- subset(train_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,green_zone_part,indust_part,price_doc))
+test_macro_mod <- subset(test_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,green_zone_part,indust_part,price_doc))
 
 #Realizamos 15 iteraciones empleando y empleando el indicador withniss obtendremos la suma de los cuadrados de las distancias entre los centros determinados por el algoritmo kmeans y los puntos que están dentro de cada cluster.
-kmeans(train_macro_mod,centers=9)$tot.withinss
-wss <- (nrow(test_macro_mod)-1)*sum(apply(train_macro_mod,2,var))
-  for (i in 2:15) wss[i] <- sum(kmeans(train_macro_mod,
+kmeans(test_macro_mod,centers=9)$tot.withinss
+wss <- (nrow(test_macro_mod)-1)*sum(apply(test_macro_mod,2,var))
+  for (i in 2:15) wss[i] <- sum(kmeans(test_macro_mod,
                                        centers=i)$withinss)
 
 #Dibujamos el gráfico para ver cual es el número de clústers más correctos para elegir
@@ -75,7 +100,7 @@ kmeans.result <- kmeans(test_macro_mod, centers=5)
 centros <- kmeans.result$centers[kmeans.result$cluster,]
 distancias <- sqrt(rowSums((test_macro_mod - centros)^2))
 outliers <- order(distancias, decreasing=T)[1:5]
-students_mod[outliers,]
+test_macro_mod[outliers,]
 
 #Detección de outliers
 plot(test_macro_mod[,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], main="Detección de outliers", pch="o",
@@ -83,6 +108,7 @@ col=kmeans.result$cluster, cex=0.3)
 points(kmeans.result$centers[,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], col=1:5, pch=8, cex=1.5)
 points(test_macro_mod[outliers,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], col=4, pch="+", cex=1.5)
 points(matrix(colMeans(test_macro_mod),nrow=1,ncol=2),cex=3,col=12,pch=19)
+
 ```
 
 ******
