@@ -11,10 +11,10 @@ output:
 ---
 
 ******
-## Introduction with the aim to predict the price
+## Carga de librerias
 ******
 Load libraries
-```{r libraries, include=FALSE}
+```{r librerias, include=FALSE}
 if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2",dependencies = TRUE)
 library(ggplot2)
 if(! "data.table" %in% installed.packages()) install.packages("data.table",dependencies = TRUE)
@@ -25,16 +25,20 @@ if(! "kableExtra" %in% installed.packages()) install.packages("kableExtra",depen
 library(kableExtra)
 if(! "xtable" %in% installed.packages()) install.packages("xtable",dependencies = TRUE)
 library(xtable)
+if(! "corrplot" %in% installed.packages()) install.packages("corrplot",dependencies = TRUE)
+library(corrplot)
+if(! "lubridate" %in% installed.packages()) install.packages("lubridate",dependencies = TRUE)
+library(lubridate)
 rm(list = ls());
 gc();
 ```
 
 ******
-## Load data and descriptive analysis dataset
+## Carga de datos y análisis descriptivo de los datos
 ******
 
-```{r descriptive, echo=FALSE}
-# Load data dataset macro, train and test
+```{r descriptiva, echo=FALSE}
+# Cargamos los datos datasets macro, train y test
 directorio_trabajo <- setwd("C:/Users/Javier Ortiz/Desktop/Master Big Data/TFM/TFM-UEMC")
 getwd()
 
@@ -45,17 +49,21 @@ train <- fread(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",", 
 test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na.strings="NA")
 
 test_macro <- merge(test,macro,"timestamp")
+train_macro <- merge(train,macro,"timestamp")
 
-#Comprobatio that the sum of rows and the number of variables is right
+#Comprobación que la suma de filas y el número de variables es correcto
 dim(test_macro)
 
-#Sum up dataset
+#Resumen del dataset
 summary(test_macro)
 ```
 
 ******
-## Clean dataset
+## Limpieza del dataset
 ******
+
+```{r clean, echo=FALSE}
+# Clean dataset train_macro
 test$full_sq[is.na(test$full_sq)] <- 0
 test$life_sq[is.na(test$life_sq)] <- 0
 test$build_year[is.na(test$build_year)] <- 0
@@ -65,9 +73,6 @@ test$num_room[is.na(test$num_room)] <- 0
 test$kitch_sq[is.na(test$kitch_sq)] <- 0
 test$state[is.na(test$state)] <- 0
 
-```{r clean, echo=FALSE}
-# Clean dataset train_macro
-
 ```
 
 ******
@@ -76,13 +81,27 @@ test$state[is.na(test$state)] <- 0
 Normalización de atributos
 ```{r exploratory,eval=TRUE, echo=FALSE}
 
-#Gráficos
-plot(train$full_sq, train$price_doc, main = "Full-sq Price", pch=20)
+#Gráficos mod3 u1 pág 115
+plot(train$price_doc,train$full_sq ,main = "Full-sq Price", pch=20)
+ggplot(aes(x=price_doc), data=train) + 
+    geom_density(fill='red', color='red') + 
+    facet_grid(~product_type) + 
+    scale_x_continuous(trans='log')
 
 #Matriz de correlación mod3 u1 pág 115
+matCor <- cor(test_macro[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","green_zone_part","indust_part")])
+
+matCor[is.na(matCor)] <- 0
+
+plot.new() 
+# Generamos una paleta de colores más claros 
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+
+# Dibujamos la matriz de coloración con cuadrados de colores y etiquetas negras 
+corrplot(matCor, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45, col = col(200), addCoef.col="black", order="AOE", mar = c(1,0,2,0), line=-2, main = "Fig 3.1. Predictors correlation matrix")
 
 #Elijo solo varibles númericas
-test_macro_mod <- subset(test_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,green_zone_part,indust_part,price_doc))
+test_macro_mod <- subset(test_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,green_zone_part,indust_part))
 
 #Realizamos 15 iteraciones empleando y empleando el indicador withniss obtendremos la suma de los cuadrados de las distancias entre los centros determinados por el algoritmo kmeans y los puntos que están dentro de cada cluster.
 kmeans(test_macro_mod,centers=9)$tot.withinss
