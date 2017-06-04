@@ -52,13 +52,40 @@ train <- fread(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",", 
 
 test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
-#Comprobación que la suma de filas y el número de variables es correcto
+#Resumen del dataset train
 dim(train)
-
 rowSums(is.na(train))
-
-#Resumen del dataset
+names(train)
+head(train)
+tail(train)
 summary(train)
+str(train)
+
+#Resumen del dataset test
+dim(test)
+rowSums(is.na(test))
+names(test)
+head(test)
+tail(test)
+summary(test)
+str(test)
+
+#Resumen del dataset macro
+dim(macro)
+rowSums(is.na(macro))
+names(macro)
+head(macro)
+tail(macro)
+summary(macro)
+str(macro)
+
+# Precios por año
+boxplot(train$price_doc~year(train$timestamp),data=train, main="Precios x año", xlab="Año", ylab="Precio")
+
+# Precios por año
+plot(train$price_doc~train$sub_area, main="Precios x sub area", xlab="Año", ylab="Sub-area", col="red")
+
+
 ```
 
 ******
@@ -117,14 +144,10 @@ Normalización de atributos
 ```{r exploratory,eval=TRUE, echo=FALSE}
 
 #Elijo solo variables númericas para subconjunto de datos de train
-train_sub <- subset(train,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,product_type,sub_area,price_doc))
+train_sub <- subset(train,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,price_doc))
 
 # Creo el subconjunto de datos de macro con las variables que me parecen más relevantes
 macro_sub <- subset(macro,select = c(deposits_value,deposits_growth,deposits_rate,mortgage_value,mortgage_growth,mortgage_rate,income_per_cap,real_dispos_income_per_cap_growth,salary,salary_growth,fixed_basket,unemployment,employment,invest_fixed_capital_per_cap,invest_fixed_assets))
-
-# Creación de conjuto de datos uniendo por fecha entre train,test y macro
-train_macro <- merge(train_sub,macro_sub,"timestamp")
-test_macro <- merge(test_sub,macro_sub,"timestamp")
 
 #Gráficos mod3 u1 pág 115
 plot(train_sub$price_doc,train$full_sq ,main = "Full-sq Price", pch=20)
@@ -134,23 +157,29 @@ ggplot(aes(x=price_doc), data=train) +
     scale_x_continuous(trans='log')
 
 #Matriz de correlación mod3 u1 pág 115
-matCor <- cor(test_macro[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","green_zone_part","indust_part")])
+matCor <- cor(train_sub[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")])
 
-matCor[is.na(matCor)] <- 0
+corrplot(cor(train_sub, use="complete.obs"),method = "number",order ="alphabet")
 
-plot.new() 
-# Generamos una paleta de colores más claros 
-col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-
-# Dibujamos la matriz de coloración con cuadrados de colores y etiquetas negras 
-corrplot(matCor, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45, col = col(200), addCoef.col="black", order="AOE", mar = c(1,0,2,0),  main = "Fig 3.1. Predictors correlation matrix")
+# matCor[is.na(matCor)] <- 0
+# 
+# plot.new() 
+# # Generamos una paleta de colores más claros 
+# col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+# 
+# # Dibujamos la matriz de coloración con cuadrados de colores y etiquetas negras 
+# corrplot(matCor, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45, col = col(200), addCoef.col="black", order="AOE", mar = c(1,0,2,0),  main = "Fig 3.1. Predictors correlation matrix")
 
 #Elijo solo varibles númericas
 test_macro_mod <- subset(test_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,green_zone_part,indust_part))
 
+# Creación de conjuto de datos uniendo por fecha entre train,test y macro
+train_macro <- merge(train_sub,macro_sub,"timestamp")
+test_macro <- merge(test_sub,macro_sub,"timestamp")
+
 #Realizamos 15 iteraciones empleando y empleando el indicador withniss obtendremos la suma de los cuadrados de las distancias entre los centros determinados por el algoritmo kmeans y los puntos que están dentro de cada cluster.
 kmeans(train_sub,centers=9)$tot.withinss
-wss <- (nrow(test_macro_mod)-1)*sum(apply(train_sub,2,var))
+wss <- (nrow(train_sub)-1)*sum(apply(train_sub,2,var))
   for (i in 2:15) wss[i] <- sum(kmeans(train_sub,
                                        centers=i)$withinss)
 
@@ -160,18 +189,18 @@ plot(1:15, wss, type="b", xlab="Numero de Clusters",
      main="Num de clusters óptimos",
      pch=20, cex=2)
 
-kmeans.result <- kmeans(test_macro_mod, centers=5)
+kmeans.result <- kmeans(train_sub, centers=5)
 centros <- kmeans.result$centers[kmeans.result$cluster,]
-distancias <- sqrt(rowSums((test_macro_mod - centros)^2))
+distancias <- sqrt(rowSums((train_sub - centros)^2))
 outliers <- order(distancias, decreasing=T)[1:5]
-test_macro_mod[outliers,]
+train_sub[outliers,]
 
 #Detección de outliers
-plot(test_macro_mod[,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], main="Detección de outliers", pch="o",
+plot(train_sub[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")], main="Detección de outliers", pch="o",
 col=kmeans.result$cluster, cex=0.3)
-points(kmeans.result$centers[,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], col=1:5, pch=8, cex=1.5)
-points(test_macro_mod[outliers,c("age","Medu","Fedu","traveltime","studytime","failures","famrel","freetime","goout")], col=4, pch="+", cex=1.5)
-points(matrix(colMeans(test_macro_mod),nrow=1,ncol=2),cex=3,col=12,pch=19)
+points(kmeans.result$centers[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")], col=1:5, pch=8, cex=1.5)
+points(train_sub[outliers,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")], col=4, pch="+", cex=1.5)
+points(matrix(colMeans(train_sub),nrow=1,ncol=2),cex=3,col=12,pch=19)
 
 ```
 
