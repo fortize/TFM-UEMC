@@ -29,6 +29,10 @@ if(! "corrplot" %in% installed.packages()) install.packages("corrplot",dependenc
 library(corrplot)
 if(! "lubridate" %in% installed.packages()) install.packages("lubridate",dependencies = TRUE)
 library(lubridate)
+if(! "caret" %in% installed.packages()) install.packages("caret",dependencies = TRUE)
+library(caret)
+if(! "lightGBM" %in% installed.packages()) install.packages("lightGBM",dependencies = TRUE)
+library(lightGBM)
 rm(list = ls());
 gc();
 ```
@@ -42,28 +46,38 @@ gc();
 directorio_trabajo <- setwd("C:/Users/Javier Ortiz/Desktop/Master Big Data/TFM/TFM-UEMC")
 getwd()
 
-macro <- fread(file="Estudio preliminar/Datos/macro.csv", header=TRUE, sep=",", na.strings="NA")
+macro <- fread(file="Estudio preliminar/Datos/macro.csv", header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
-train <- fread(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",", na.strings="NA")
+train <- fread(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
-test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na.strings="NA")
-
-test_macro <- merge(test,macro,"timestamp")
-train_macro <- merge(train,macro,"timestamp")
+test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
 #Comprobación que la suma de filas y el número de variables es correcto
-dim(test_macro)
+dim(train)
+
+rowSums(is.na(train))
 
 #Resumen del dataset
-summary(test_macro)
+summary(train)
 ```
 
 ******
-## Limpieza del dataset
+## Limpieza del dataset y selección de datos
 ******
 
 ```{r clean, echo=FALSE}
-# Clean dataset train_macro
+# Limpiamos las variables del dataset train que vamos a emplear
+train$full_sq[is.na(train$full_sq)] <- 0
+train$life_sq[is.na(train$life_sq)] <- 0
+train$build_year[is.na(train$build_year)] <- 0
+train$floor[is.na(train$floor)] <- 0
+train$max_floor[is.na(train$max_floor)] <- 0
+train$num_room[is.na(train$num_room)] <- 0
+train$kitch_sq[is.na(train$kitch_sq)] <- 0
+train$state[is.na(train$state)] <- 0
+train$material[is.na(train$material)] <- 0
+
+# Limpiamos las variables del dataset test que vamos a emplear
 test$full_sq[is.na(test$full_sq)] <- 0
 test$life_sq[is.na(test$life_sq)] <- 0
 test$build_year[is.na(test$build_year)] <- 0
@@ -72,6 +86,27 @@ test$max_floor[is.na(test$max_floor)] <- 0
 test$num_room[is.na(test$num_room)] <- 0
 test$kitch_sq[is.na(test$kitch_sq)] <- 0
 test$state[is.na(test$state)] <- 0
+test$material[is.na(test$material)] <- 0
+
+# Creamos la variable price_doc en el dataset de test
+test$price_doc <- 0
+
+# Limpiamos los nulos de los campos que vamos a utilizar del dataset macro
+macro$deposits_value[is.na(macro$deposits_value)] <- 0
+macro$deposits_growth[is.na(macro$deposits_growth)] <- 0
+macro$deposits_rate[is.na(macro$deposits_rate)] <- 0
+macro$mortgage_value[is.na(macro$mortgage_value)] <- 0
+macro$mortgage_growth[is.na(macro$mortgage_growth)] <- 0
+macro$mortgage_rate[is.na(macro$mortgage_rate)] <- 0
+macro$income_per_cap[is.na(macro$income_per_cap)] <- 0
+macro$real_dispos_income_per_cap_growth[is.na(macro$real_dispos_income_per_cap_growth)] <- 0
+macro$salary[is.na(macro$salary)] <- 0
+macro$salary_growth[is.na(macro$salary_growth)] <- 0
+macro$fixed_basket[is.na(macro$fixed_basket)] <- 0
+macro$unemployment[is.na(macro$unemployment)] <- 0
+macro$employment[is.na(macro$employment)] <- 0
+macro$invest_fixed_capital_per_cap[is.na(macro$invest_fixed_capital_per_cap)] <- 0
+macro$invest_fixed_assets[is.na(macro$invest_fixed_assets)] <- 0
 
 ```
 
@@ -81,8 +116,18 @@ test$state[is.na(test$state)] <- 0
 Normalización de atributos
 ```{r exploratory,eval=TRUE, echo=FALSE}
 
+#Elijo solo variables númericas para subconjunto de datos de train
+train_sub <- subset(train,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,product_type,sub_area,price_doc))
+
+# Creo el subconjunto de datos de macro con las variables que me parecen más relevantes
+macro_sub <- subset(macro,select = c(deposits_value,deposits_growth,deposits_rate,mortgage_value,mortgage_growth,mortgage_rate,income_per_cap,real_dispos_income_per_cap_growth,salary,salary_growth,fixed_basket,unemployment,employment,invest_fixed_capital_per_cap,invest_fixed_assets))
+
+# Creación de conjuto de datos uniendo por fecha entre train,test y macro
+train_macro <- merge(train_sub,macro_sub,"timestamp")
+test_macro <- merge(test_sub,macro_sub,"timestamp")
+
 #Gráficos mod3 u1 pág 115
-plot(train$price_doc,train$full_sq ,main = "Full-sq Price", pch=20)
+plot(train_sub$price_doc,train$full_sq ,main = "Full-sq Price", pch=20)
 ggplot(aes(x=price_doc), data=train) + 
     geom_density(fill='red', color='red') + 
     facet_grid(~product_type) + 
@@ -98,15 +143,15 @@ plot.new()
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 
 # Dibujamos la matriz de coloración con cuadrados de colores y etiquetas negras 
-corrplot(matCor, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45, col = col(200), addCoef.col="black", order="AOE", mar = c(1,0,2,0), line=-2, main = "Fig 3.1. Predictors correlation matrix")
+corrplot(matCor, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45, col = col(200), addCoef.col="black", order="AOE", mar = c(1,0,2,0),  main = "Fig 3.1. Predictors correlation matrix")
 
 #Elijo solo varibles númericas
 test_macro_mod <- subset(test_macro,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,green_zone_part,indust_part))
 
 #Realizamos 15 iteraciones empleando y empleando el indicador withniss obtendremos la suma de los cuadrados de las distancias entre los centros determinados por el algoritmo kmeans y los puntos que están dentro de cada cluster.
-kmeans(test_macro_mod,centers=9)$tot.withinss
-wss <- (nrow(test_macro_mod)-1)*sum(apply(test_macro_mod,2,var))
-  for (i in 2:15) wss[i] <- sum(kmeans(test_macro_mod,
+kmeans(train_sub,centers=9)$tot.withinss
+wss <- (nrow(test_macro_mod)-1)*sum(apply(train_sub,2,var))
+  for (i in 2:15) wss[i] <- sum(kmeans(train_sub,
                                        centers=i)$withinss)
 
 #Dibujamos el gráfico para ver cual es el número de clústers más correctos para elegir
