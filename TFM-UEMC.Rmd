@@ -15,26 +15,37 @@ output:
 ******
 Load libraries
 ```{r librerias, include=FALSE}
-if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2",dependencies = TRUE)
+if(! "ggplot2" %in% installed.packages()) 
+  install.packages("ggplot2",dependencies = TRUE)
 library(ggplot2)
 if(! "data.table" %in% installed.packages()) install.packages("data.table",dependencies = TRUE)
 library(data.table)
-if(! "caret" %in% installed.packages()) install.packages("caret",dependencies = TRUE)
+if(! "caret" %in% installed.packages()) 
+  install.packages("caret",dependencies = TRUE)
 library(caret)
 if(! "kableExtra" %in% installed.packages()) install.packages("kableExtra",dependencies = TRUE)
 library(kableExtra)
-if(! "xtable" %in% installed.packages()) install.packages("xtable",dependencies = TRUE)
+if(! "xtable" %in% installed.packages()) 
+  install.packages("xtable",dependencies = TRUE)
 library(xtable)
-if(! "corrplot" %in% installed.packages()) install.packages("corrplot",dependencies = TRUE)
+if(! "corrplot" %in% installed.packages()) 
+  install.packages("corrplot",dependencies = TRUE)
 library(corrplot)
-if(! "lubridate" %in% installed.packages()) install.packages("lubridate",dependencies = TRUE)
+if(! "lubridate" %in% installed.packages()) 
+  install.packages("lubridate",dependencies = TRUE)
 library(lubridate)
-if(! "caret" %in% installed.packages()) install.packages("caret",dependencies = TRUE)
+if(! "caret" %in% installed.packages()) 
+  install.packages("caret",dependencies = TRUE)
 library(caret)
-if(! "lightGBM" %in% installed.packages()) install.packages("lightGBM",dependencies = TRUE)
-library(lightGBM)
-if(! "dplyr" %in% installed.packages()) install.packages("dplyr",dependencies = TRUE)
+if(! "xgboost" %in% installed.packages()) 
+  install.packages("xgboost",dependencies = TRUE)
+library(xgboost)
+if(! "dplyr" %in% installed.packages()) 
+  install.packages("dplyr",dependencies = TRUE)
 library(dplyr)
+if(! "ROCR" %in% installed.packages()) 
+  install.packages("ROCR",dependencies = TRUE)
+library(ROCR)
 rm(list = ls());
 gc();
 ```
@@ -42,7 +53,6 @@ gc();
 ******
 ## Carga de datos y análisis descriptivo de los datos
 ******
-
 ```{r descriptiva, echo=FALSE}
 # Cargamos los datos datasets macro, train y test
 directorio_trabajo <- setwd("C:/Users/Javier Ortiz/Desktop/Master Big Data/TFM/TFM-UEMC")
@@ -56,26 +66,13 @@ test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na
 
 #Resumen del dataset train
 dim(train)
-rowSums(is.na(train))
-names(train)
 head(train)
 tail(train)
 summary(train)
 str(train)
 
-#Resumen del dataset test
-dim(test)
-rowSums(is.na(test))
-names(test)
-head(test)
-tail(test)
-summary(test)
-str(test)
-
 #Resumen del dataset macro
 dim(macro)
-rowSums(is.na(macro))
-names(macro)
 head(macro)
 tail(macro)
 summary(macro)
@@ -97,17 +94,6 @@ train %>%
     geom_bar(stat = 'identity') + 
     labs(x='', y='Number of transactions', title='Sales volume over time')
 
-# completes <- complete.cases(train)
-# 
-# rfmod <- train(price_doc ~ . - id - timestamp - incineration_raion,
-#                method='rf',
-#                data=train[completes, ],
-#                trControl=trainControl(method='none'),
-#                tuneLength=1,
-#                importance=TRUE)
-# 
-# varImp(rfmod)
-
 ```
 
 ******
@@ -121,10 +107,12 @@ train$life_sq[is.na(train$life_sq)] <- 0
 train$build_year[is.na(train$build_year)] <- 0
 train$floor[is.na(train$floor)] <- 0
 train$max_floor[is.na(train$max_floor)] <- 0
+train$material[is.na(train$material)] <- 0
 train$num_room[is.na(train$num_room)] <- 0
 train$kitch_sq[is.na(train$kitch_sq)] <- 0
 train$state[is.na(train$state)] <- 0
-train$material[is.na(train$material)] <- 0
+train$raion_popul[is.na(train$raion_popul)] <- 0
+train$work_all[is.na(train$work_all)] <- 0
 
 # Limpiamos las variables del dataset test que vamos a emplear
 test$full_sq[is.na(test$full_sq)] <- 0
@@ -132,10 +120,12 @@ test$life_sq[is.na(test$life_sq)] <- 0
 test$build_year[is.na(test$build_year)] <- 0
 test$floor[is.na(test$floor)] <- 0
 test$max_floor[is.na(test$max_floor)] <- 0
+test$material[is.na(test$material)] <- 0
 test$num_room[is.na(test$num_room)] <- 0
 test$kitch_sq[is.na(test$kitch_sq)] <- 0
 test$state[is.na(test$state)] <- 0
-test$material[is.na(test$material)] <- 0
+test$raion_popul[is.na(test$raion_popul)] <- 0
+test$work_all[is.na(test$work_all)] <- 0
 
 # Creamos la variable price_doc en el dataset de test
 test$price_doc <- 0
@@ -166,38 +156,28 @@ Normalización de atributos
 ```{r exploratory,eval=TRUE, echo=FALSE}
 
 #Elijo solo variables númericas para subconjunto de datos de train
-train_sub <- subset(train,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,price_doc))
+train_sub <- subset(train,select = c(id,timestamp,full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,raion_popul,work_all,price_doc))
 
 # Creo el subconjunto de datos de macro con las variables que me parecen más relevantes
-macro_sub <- subset(macro,select = c(deposits_value,deposits_growth,deposits_rate,mortgage_value,mortgage_growth,mortgage_rate,income_per_cap,real_dispos_income_per_cap_growth,salary,salary_growth,fixed_basket,unemployment,employment,invest_fixed_capital_per_cap,invest_fixed_assets))
+macro_sub <- subset(macro,select = c(timestamp,deposits_value,deposits_growth,deposits_rate,mortgage_value,mortgage_growth,mortgage_rate,income_per_cap,real_dispos_income_per_cap_growth,salary,salary_growth,fixed_basket,unemployment,employment,invest_fixed_capital_per_cap,invest_fixed_assets))
+
+train_final <- merge(train_sub,macro_sub,"timestamp")
 
 #Gráficos mod3 u1 pág 115
-plot(train_sub$price_doc,train$full_sq ,main = "Full-sq Price", pch=20)
-ggplot(aes(x=price_doc), data=train) + 
+plot(train_final$price_doc,train_final$full_sq ,main = "Full-sq Precio", pch=20)
+ggplot(aes(x=price_doc), data=train_final) + 
     geom_density(fill='red', color='red') + 
-    facet_grid(~product_type) + 
+    facet_grid(~full_sq) + 
     scale_x_continuous(trans='log')
 
-#Matriz de correlación mod3 u1 pág 115
-matCor <- cor(train_sub[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")])
-
+#Matriz de correlación
+matCor <- cor(train_final)
 corrplot(cor(train_sub, use="complete.obs"),method = "number",order ="alphabet")
 
-# matCor[is.na(matCor)] <- 0
-# 
-# plot.new() 
-# # Generamos una paleta de colores más claros 
-# col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
-# 
-# # Dibujamos la matriz de coloración con cuadrados de colores y etiquetas negras 
-# corrplot(matCor, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45, col = col(200), addCoef.col="black", order="AOE", mar = c(1,0,2,0),  main = "Fig 3.1. Predictors correlation matrix")
-
 #Elijo solo varibles númericas
-test_macro <- subset(test,select = c(full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,green_zone_part,indust_part))
+test_sub <- subset(test,select = c(timestamp,id,full_sq,life_sq,floor,max_floor,material,build_year,num_room,kitch_sq,state,raion_popul,work_all,price_doc))
 
-# Creación de conjuto de datos uniendo por fecha entre train,test y macro
-train_macro <- merge(train_sub,macro_sub,"timestamp")
-test_macro <- merge(test_sub,macro_sub,"timestamp")
+test_final <- merge(test_sub,macro_sub,"timestamp")
 
 #Realizamos 15 iteraciones empleando y empleando el indicador withniss obtendremos la suma de los cuadrados de las distancias entre los centros determinados por el algoritmo kmeans y los puntos que están dentro de cada cluster.
 kmeans(train_sub,centers=9)$tot.withinss
@@ -218,65 +198,64 @@ outliers <- order(distancias, decreasing=T)[1:5]
 train_sub[outliers,]
 
 #Detección de outliers
-plot(train_sub[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")], main="Detección de outliers", pch="o",
+plot(train_sub[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","state","raion_popul","work_all","kitch_sq","price_doc")], main="Detección de outliers", pch="o",
 col=kmeans.result$cluster, cex=0.3)
-points(kmeans.result$centers[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")], col=1:5, pch=8, cex=1.5)
-points(train_sub[outliers,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","kitch_sq","price_doc")], col=4, pch="+", cex=1.5)
+points(kmeans.result$centers[,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","state","raion_popul","work_all","kitch_sq","price_doc")], col=1:5, pch=8, cex=1.5)
+points(train_sub[outliers,c("full_sq","life_sq","floor","max_floor","material","build_year","num_room","state","raion_popul","work_all","kitch_sq","price_doc")], col=4, pch="+", cex=1.5)
 points(matrix(colMeans(train_sub),nrow=1,ncol=2),cex=3,col=12,pch=19)
 
 ```
 
 ******
-## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (Prototype modelo (KNN))
+## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (Regression Linear - XGBoost)
 ******
 ```{r reg_lineal, echo=FALSE}
-#train_macro_sub <- merge(train_sub,macro_sub,"timestamp")
-sapply(test_macro_mod,function(x) sum(is.na(x)))
-sapply(test_macro_mod,function(x) length(unique(x)))
+# Creamos la matriz de dispersión 
 
-#Buscamos las variables que no aportan al clasificador.
-zero.var.train <- nearZeroVar(train.mod[, -dim(train.mod)[2]], saveMetrics = F)
-colnames(train.mod)[zero.var.train.mod]
+varnames <- setdiff(colnames(train_final), c("id", "price_doc", "timestamp"))
+train_sparse <- Matrix(as.matrix(sapply(train_final[price_doc > -1, varnames, with=FALSE],as.numeric)), sparse=TRUE)
 
-#Variables que tienen correlación.
-cor.train.mod.matrix <- cor(train.mod[, -dim(train.mod)[2]] )
-cor.train.mod.index <- findCorrelation(cor.train.mod.matrix, 0.80)
+test_sparse <- Matrix(as.matrix(sapply(test_final[price_doc == 0, varnames, with=FALSE],as.numeric)), sparse=TRUE)
 
-cor.train.mod <- train.mod[, -cor.train.students_mod.index]
-cor.test.mod <- test.mod[, -cor.train.mod.index]
+y_train <- train_final[price_doc > -1,price_doc]
+test_ids <- test_final[price_doc == -1,id]
+dtrain <- xgb.DMatrix(data=train_sparse, label=y_train)
+dtest <- xgb.DMatrix(data=test_sparse);gc()
 
-xTrans.mod <- preProcess(cor.train.mod[, -dim(cor.train.mod)[2]])
-train.mod.prep <- predict( xTrans.mod, cor.train.mod[,-dim(cor.train.mod)[2]])
-train.mod.prep$Class <- cor.train.mod$Class
+# Params for xgboost
+param <- list(objective="reg:linear",
+              eval_metric = "rmse",
+              eta = .05,
+              gamma = 1,
+              max_depth = 4,
+              min_child_weight = 1,
+              subsample = .7,
+              colsample_bytree = .7
+)
 
-test.mod.prep <- predict(xTrans.mod, cor.test.mod[,-dim(cor.test.mod)[2]])
-test.mod.prep$Class <- cor.test.mod$Class
 
-# Remuestreamos el conjunto de entreno
-knn.control <- trainControl(method="repeatedcv", repeats = 5)
+rounds <- 372
 
-#Entrenamos el modelo
-knn.mod.model <- train(x=train.mod.prep[,-dim(train.mod.prep)[2]], y=train.mod.prep$Class, method="knn", tuneLength = 10, trControl = knn.control)
+# Train model
+cat("XGB training")
+xgb_model <- xgb.train(data = dtrain,
+                       params = param,
+                       watchlist = list(train = dtrain),
+                       nrounds = rounds,
+                       verbose = 1,
+                       print.every.n = 5
+);gc()
 
-#Mostramos el modelo resultante
-knn.mod.model
+# Feature importance
+names <- dimnames(train_sparse)[[2]]
+importance_matrix <- xgb.importance(names,model=xgb_model)
+xgb.plot.importance(importance_matrix[1:50,])
 
-#Mostramos mediante un gráfico la metrica Accuracy
-knnplot <- plot(knn.mod.model, metric="Accuracy")
-print(knnplot)
+# Predict and output csv
+preds <- predict(xgb_model,dtest)
+preds <- expm1(preds)
+write.table(data.table(id=test_ids, price_doc=preds), "submission.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 
-#
-knn.mod.test <- predict(knn.mod.model, newdata = test.mod.prep[,-dim(train.mod.prep)[2]])
-
-#Matriz de confusión.
-confusionMatrix(knn.mod.test,test.mod.prep$Class)
-
-#Se da valor si es aprobado o supendido (1,0)
-pr <- prediction(ifelse(knn.mod.test == 'APR',1,0), ifelse(test.mod.prep$Class == 'APR',1,0))
-
-#Mostramos el rendimiento del modelo mediante un gráfico
-prf <- performance(pr, measure = "tpr", x.measure = "fpr")
-plot(prf)
 ```
 
 ******
@@ -286,7 +265,7 @@ Realizamos las misma operaciones que para el primer modelo
 ```{r GBM, echo=FALSE}
 gbm.control <- trainControl(method="repeatedcv", repeats = 5)
 
-gbm.train_mod.model <- train(x=train.mod.prep[,-dim(train.mod.prep)[2]],   y=train.mod.prep$Class, 
+gbm.train_sub.model <- train_sub(x=train_sub[,-dim(train_sub)[2]], y=train_sub$Class, 
 method="gbm",
 tuneLength = 10, 
 trControl = gbm.control)
