@@ -261,91 +261,59 @@ points(matrix(colMeans(train_sub),nrow=1,ncol=2),cex=3,col=12,pch=19)
 ```
 
 ******
-## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (xgbLinear - Caret)
+## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (glmboost - Caret)
 ******
 ```{r XGBLINEAR, echo=FALSE}
-train_final_matrix <- data.matrix(train_final, rownames.force = NA)
-test_final__matrix <- data.matrix(test_final, rownames.force = NA)
-
 # Set up training control
-ctrl <- trainControl(method = "repeatedcv",   # 10fold cross validation
+glmboost.control <- trainControl(method = "repeatedcv",   # 10fold cross validation
                      number = 5,							# do 5 repititions of cv
-                     summaryFunction=twoClassSummary,	# Use AUC to pick the best model
                      classProbs=TRUE,
                      allowParallel = TRUE)
-
-grid <- expand.grid(interaction.depth=c(1,2), # Depth of variable interactions
-                    n.trees=c(10,20),	        # Num trees to fit
-                    shrinkage=c(0.01,0.1),		# Try 2 values for learning rate 
-                    n.minobsinnode = 20)
-										
-set.seed(1951)  # set the seed
 
 # Set up to do parallel processing   
 registerDoParallel(4)		# Registrer a parallel backend for train
 getDoParWorkers()
 
-str(train_final_matrix)
+glmboost.model <- train(price_doc ~ .,
+                            data = train_sub,
+                            method = "glmboost",
+                            trControl = glmboost.control)
 
-trainX <- train_final[,-14]        # Pull out the dependent variable
-testX <-  test_final[,-14]
-
-
-library(doParallel)
-## NOTE: don't run models form RWeka when using
-### multicore. The session will crash.
-## The code for train() does not change:
-gbm.tune <- train(price_doc ~ .,
-                            data = train_final,
-                            method = "glmboost")
-
-gbm.tune$bestTune
-plot(gbm.tune)  		# Plot the performance of the training models
-res <- gbm.tune$results
-res
- 
 ### GBM Model Predictions and Performance
 # Make predictions using the test data set
-gbm.pred <- predict(gbm.tune,test_final)
+glmboost.pred <- predict(gbm.tune,test_sub)
 
-#Look at the confusion matrix  
-confusionMatrix(gbm.pred,test_final$Class)   
- 
-#Draw the ROC curve 
-gbm.probs <- predict(gbm.tune,test_final,type="prob")
-head(gbm.probs)
- 
-gbm.ROC <- roc(predictor=gbm.probs$PS,
-               response=testData$Class,
-               levels=rev(levels(testData$Class)))
-
-write.table(data.table(id=test_ids, price_doc=preds), "Estudio final/Datos/submission.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio final/Datos/submission_glmboost.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 
 ```
 
 ******
-## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (xgbTree)
+## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (gbm)
 ******
 Realizamos las misma operaciones que para el primer modelo
 ```{r XGBTREE, echo=FALSE}
-gbm.control <- trainControl(method="repeatedcv", repeats = 5)
+lm.control <- trainControl(method = "repeatedcv",   # 10fold cross validation
+                     number = 5,							# do 5 repititions of cv
+                     allowParallel = TRUE)
 
-gbm.train_final.model <- train_final(x=train_final[,-dim(train_final)[2]], y=train_final$Class, 
-method="gbm",
-tuneLength = 10, 
-trControl = gbm.control)
+# Set up to do parallel processing   
+registerDoParallel(4)		# Registrer a parallel backend for train
+getDoParWorkers()
 
-gbm.mod.model
+lm.model <- train(price_doc ~ .,
+                            data = train_final,
+                            method = "gbm",
+                            tuneLength = 10, 
+                            trControl = lm.control)
 
-gbmplot <- plot(gbm.mod.model, metric="Accuracy")
-print(rocplot)
+lm.model
 
-gbm.mod.test <- predict(gbm.mod.model, newdata = test_final.prep[,-dim(train_final.prep)[2]])
+### GBM Model Predictions and Performance
+# Make predictions using the test data set
+lm.pred <- predict(lm.model,test_final)
 
-confusionMatrix(gbm.mod.test,test_final.prep$Class) 
+write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio final/Datos/submission_gbm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 
-prf <- performance(pr, measure = "tpr", x.measure = "fpr")
-plot(prf)
 ```
 
 ******
@@ -353,7 +321,7 @@ plot(prf)
 ******
 Gracias al paquete Caret podremos comparar los modelos.
 ```{r comparation, echo=FALSE}
-models <- list(xgb.mod.model, gmb.mod.model)
+models <- list(glmboost.model, lm.model)
 compar.models <- resamples(models)
 summary(compar.models)
 ```
