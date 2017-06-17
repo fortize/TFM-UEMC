@@ -263,7 +263,7 @@ points(matrix(colMeans(train_sub),nrow=1,ncol=2),cex=3,col=12,pch=19)
 ******
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (glmboost - Caret)
 ******
-```{r XGBLINEAR, echo=FALSE}
+```{r GLMBOOST, echo=FALSE}
 # Set up training control
 glmboost.control <- trainControl(method = "repeatedcv",   # 10fold cross validation
                      number = 5,							# do 5 repititions of cv
@@ -291,7 +291,36 @@ write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio fina
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (gbm)
 ******
 Realizamos las misma operaciones que para el primer modelo
-```{r XGBTREE, echo=FALSE}
+```{r GBM, echo=FALSE}
+gbm.control <- trainControl(method = "repeatedcv",   # 10fold cross validation
+                     number = 5,							# do 5 repititions of cv
+                     allowParallel = TRUE)
+
+# Set up to do parallel processing   
+registerDoParallel(4)		# Registrer a parallel backend for train
+getDoParWorkers()
+
+gbm.model <- train(price_doc ~ .,
+                            data = train_final,
+                            method = "gbm",
+                            tuneLength = 10, 
+                            trControl = lm.control)
+
+gbm.model
+
+### GBM Model Predictions and Performance
+# Make predictions using the test data set
+gbm.pred <- predict(gbm.model,test_final)
+
+write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio final/Datos/submission_gbm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+
+```
+
+******
+## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (lm)
+******
+Realizamos las misma operaciones que para el primer modelo
+```{r LM, echo=FALSE}
 lm.control <- trainControl(method = "repeatedcv",   # 10fold cross validation
                      number = 5,							# do 5 repititions of cv
                      allowParallel = TRUE)
@@ -302,8 +331,9 @@ getDoParWorkers()
 
 lm.model <- train(price_doc ~ .,
                             data = train_final,
-                            method = "gbm",
-                            tuneLength = 10, 
+                            method = "lm",
+                            tuneLength = 10,
+                            intercept = TRUE,
                             trControl = lm.control)
 
 lm.model
@@ -312,7 +342,7 @@ lm.model
 # Make predictions using the test data set
 lm.pred <- predict(lm.model,test_final)
 
-write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio final/Datos/submission_gbm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=lm.pred), "Estudio final/Datos/submission_lm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 
 ```
 
@@ -321,7 +351,7 @@ write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio final/Dat
 ******
 Gracias al paquete Caret podremos comparar los modelos.
 ```{r comparation, echo=FALSE}
-models <- list(glmboost.model, lm.model)
+models <- list(glmboost.model,gbm.model,lm.model)
 compar.models <- resamples(models)
 summary(compar.models)
 ```
