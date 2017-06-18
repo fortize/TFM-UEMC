@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ---
 title: "TFM"
 author: "Javier Ortiz"
@@ -746,5 +745,4 @@ summary(compar.models)
 Mediante el gráfico podemos ver como el modelo 2 (RMSE - Rsquared) tiene una precisión mayor que el primer modelo.
 ```{r graphics, echo=FALSE}
 dotplot(compar.models)
->>>>>>> e8b9f6451cf37a8ae20b649e0354e73af5575dbd
 ```
