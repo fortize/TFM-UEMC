@@ -361,7 +361,7 @@ write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio fina
 ******
 Gracias al paquete Caret podremos comparar los modelos.
 ```{r comparation, echo=FALSE}
-models <- list(glmboost.model,gbm.model,lm.model,xgboost.model,xgblinear.model)
+models <- list(glmboost.model,gbm.model,lm.model,xgbtree.model,xgblinear.model)
 compar.models <- resamples(models)
 summary(compar.models)
 ```
