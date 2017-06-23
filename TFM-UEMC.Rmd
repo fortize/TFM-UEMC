@@ -1,6 +1,6 @@
 ---
-title: "TFM"
-author: "Javier Ortiz"
+title: "TFM "
+author: "Francisco Javier Ortiz Escuchas"
 date: "30 de Junio de 2017"
 output: 
   word_document: null
@@ -61,21 +61,31 @@ gc();
 ******
 ```{r descriptiva, echo=FALSE}
 # Cargamos los datos datasets macro, train y test
-directorio_trabajo <- setwd("C:/Users/Javier Ortiz/Desktop/Master Big Data/TFM/TFM-UEMC")
+mainDir <- "c:/Users/Javier Ortiz/Desktop/Master Big Data/TFM/TFM-UEMC/Estudio_preliminar/Datos"
+
+if (dir.exists(mainDir)){
+    setwd(file.path(mainDir))
+} else {
+    dir.create(file.path(mainDir))
+    setwd(file.path(mainDir))
+
+}
+
+directorio_trabajo <- setwd(mainDir)
 getwd()
 
 # Con la libreria DoParallel vamos a emplear el proceso en paralelo para los 4
 # procesadores de mi máquina (Windows 10)
 registerDoParallel(4)
-#getDoParWorkers()
+#getDoParWorkers() Nos aseguramos que vamos a paralelizar sobre los  procesadores
 cl <- makeCluster(detectCores())
- registerDoParallel(cl)
+registerDoParallel(cl)
 
-macro <- fread(file="Estudio preliminar/Datos/macro.csv", header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
+macro <- fread(file=paste(directorio_trabajo,"/macro.csv",sep = "", collapse = NULL), header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
-train <- fread(file="Estudio preliminar/Datos/train.csv", header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
+train <- fread(file=paste(directorio_trabajo,"/train.csv",sep = "", collapse = NULL), header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
-test <- fread(file="Estudio preliminar/Datos/test.csv", header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
+test <- fread(file=paste(directorio_trabajo,"/test.csv",sep = "", collapse = NULL), header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
 #Resumen del dataset train
 dim(train)
@@ -108,11 +118,6 @@ ggplot(aes(x=build_year, y=price_doc), data=train) +
     geom_point(color='red')
 
 train$fecha <- as_datetime(train$timestamp)
-
-train %>% 
-    filter(year(build_year) > 1691 & year(build_year) < 2018) %>% 
-    ggplot(aes(x=year(build_year))) + geom_histogram(fill='red',bins=10) + 
-    ggtitle('Distribución por año de construcción')
 
 ggplot(aes(x=sub_area, y=price_doc), data=train) + 
     geom_point(color='red')
@@ -264,8 +269,8 @@ points(matrix(colMeans(train_sub),nrow=1,ncol=2),cex=3,col=12,pch=19)
 # Parametrización training control
 control <- trainControl(method = "repeatedcv",   
                                  number = 10,
-                                 allowParallel = TRUE,
-                                 repeats = 5)
+                                 allowParallel = TRUE)
+                                 #repeats = 5)
 ```
 ******
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (glmboost - Caret)
@@ -280,7 +285,7 @@ glmboost.model <- train(price_doc ~ .,
 glmboost.pred <- predict(glmboost.model,test_final)
 
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
-write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio final/Datos/submission_glmboost.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio_final/Datos/submission_glmboost.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 
 ```
 
@@ -303,7 +308,7 @@ res <- gbm.model$results
 res
 
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
-write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio final/Datos/submission_gbm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio_final/Datos/submission_gbm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
 
 ******
@@ -321,7 +326,7 @@ lm.model <- train(price_doc ~ .,
 lm.pred <- predict(lm.model,test_final)
 
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
-write.table(data.table(id=test_final$id, price_doc=lm.pred), "Estudio final/Datos/submission_lm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=lm.pred), "Estudio_final/Datos/submission_lm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
 ******
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (xgbTree)
@@ -336,7 +341,7 @@ xgbtree.model <- train(price_doc ~ .,
 xgbtree.pred <- predict(xgbtree.model,test_final)
 
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
-write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio final/Datos/submission_xgbtree.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio_final/Datos/submission_xgbtree.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 
 ```
 ******
@@ -352,7 +357,7 @@ xgblinear.model <- train(price_doc ~ .,
 xgblinear.pred <- predict(xgblinear.model,test_final)
 
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
-write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio final/Datos/submission_xgblinear.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio_final/Datos/submission_xgblinear.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 
 ```
 ******
