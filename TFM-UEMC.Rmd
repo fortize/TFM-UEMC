@@ -13,7 +13,7 @@ output:
 ******
 ## Carga de librerias
 ******
-Load libraries
+Load libraries (ggplot2,data.table,caret,corrplot,lubridate,dplyr,doParallel,sp,rgdal,magrittr,plyr)
 ```{r librerias, include=FALSE}
 if(! "ggplot2" %in% installed.packages()) 
   install.packages("ggplot2",dependencies = TRUE)
@@ -23,32 +23,15 @@ library(data.table)
 if(! "caret" %in% installed.packages()) 
   install.packages("caret",dependencies = TRUE)
 library(caret)
-if(! "kableExtra" %in% installed.packages()) install.packages("kableExtra",dependencies = TRUE)
-library(kableExtra)
-if(! "xtable" %in% installed.packages()) 
-  install.packages("xtable",dependencies = TRUE)
-library(xtable)
 if(! "corrplot" %in% installed.packages()) 
   install.packages("corrplot",dependencies = TRUE)
 library(corrplot)
 if(! "lubridate" %in% installed.packages()) 
   install.packages("lubridate",dependencies = TRUE)
 library(lubridate)
-if(! "caret" %in% installed.packages()) 
-  install.packages("caret",dependencies = TRUE)
-library(caret)
 if(! "dplyr" %in% installed.packages()) 
   install.packages("dplyr",dependencies = TRUE)
 library(dplyr)
-if(! "ROCR" %in% installed.packages()) 
-  install.packages("ROCR",dependencies = TRUE)
-library(ROCR)
-if(! "xgboost" %in% installed.packages()) 
-  install.packages("xgboost",dependencies = TRUE)
-library(xgboost)
-if(! "Matrix" %in% installed.packages()) 
-  install.packages("Matrix",dependencies = TRUE)
-library(Matrix)
 if(! "doParallel" %in% installed.packages()) 
   install.packages("doParallel",dependencies = TRUE)
 library(doParallel)		# parallel processing
@@ -57,11 +40,10 @@ library(doParallel)		# parallel processing
 rm(list = ls());
 gc();
 ```
-
 ******
 ## Carga de datos y análisis descriptivo de los datos
 ******
-```{r descriptiva, echo=FALSE}
+```{r descriptiva, echo=FALSE, message= FALSE}
 # Cargamos los datos datasets macro, train y test
 mainDir <- "c:/Users/Javier Ortiz/Desktop/Master Big Data/TFM/TFM-UEMC/Estudio_preliminar/Datos"
 
@@ -75,24 +57,23 @@ if (dir.exists(mainDir)){
 directorio_trabajo <- setwd(mainDir)
 getwd()
 
-# Con la libreria DoParallel vamos a emplear el proceso en paralelo para los 4
-# procesadores de mi máquina (Windows 10)
-registerDoParallel(4)
-#getDoParWorkers() Nos aseguramos que vamos a paralelizar sobre los  procesadores
+# Con la libreria DoParallel vamos a emplear el proceso en paralelo para los 
+# procesadores de mi máquina (Windows 10) que vamos a detectar automáticamente
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 
+# Cargamos los ficheros (macro,train y test) con la función fread
 macro <- fread(file=paste(directorio_trabajo,"/macro.csv",sep = "", collapse = NULL), header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
 train <- fread(file=paste(directorio_trabajo,"/train.csv",sep = "", collapse = NULL), header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
 test <- fread(file=paste(directorio_trabajo,"/test.csv",sep = "", collapse = NULL), header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
 
+coord <- fread(file=paste(directorio_trabajo,"/coord.csv",sep = "", collapse = NULL), header=TRUE, sep=",", na.strings="NA", stringsAsFactors=TRUE)
+
 #Resumen del dataset train
 dim(train)
-head(train)
-tail(train)
-summary(train)
+#summary(train) Comentado para evitar que el informe sea muy extenso.
 str(train)
 
 # Precios por año
@@ -156,7 +137,7 @@ macro %>%
 ## Limpieza del dataset y selección de datos
 ******
 
-```{r clean, echo=FALSE}
+```{r clean, echo=FALSE, message= FALSE}
 # Limpiamos las variables del dataset train que vamos a emplear
 train$full_sq[is.na(train$full_sq)] <- 0
 train$life_sq[is.na(train$life_sq)] <- 0
@@ -247,7 +228,7 @@ wss <- (nrow(train_sub)-1)*sum(apply(train_sub,2,var))
   for (i in 2:15) wss[i] <- sum(kmeans(train_sub,
                                        centers=i)$withinss)
 
-#Dibujamos el gráfico para ver cual es el número de clústers más correctos para elegir
+#Dibujamos el gráfico para ver cual es el número de clústers más correcto para elegir
 plot(1:15, wss, type="b", xlab="Numero de Clusters",
      ylab="Sumas de cuadrados dentro de los grupos",
      main="Num de clusters óptimos",
@@ -268,26 +249,29 @@ points(matrix(colMeans(train_sub),nrow=1,ncol=2),cex=3,col=12,pch=19)
 ******
 ## Parámetros comunes para todas las ejecuciones
 ******
-```{r PARAMS, echo=FALSE}
+```{r PARAMS, echo=FALSE, message= FALSE}
 # Parametrización training control
 control <- trainControl(method = "repeatedcv",   
                                  number = 6)
+
 ```
 ******
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (glmboost - Caret)
 ******
-```{r GLMBOOST, echo=FALSE}
-Grid <- expand.grid(.mstop=400,.prune=c(5))
+```{r GLMBOOST, echo=FALSE, message= FALSE}
 glmboost.model <- train(price_doc ~ .,
                             data = train_final,
                             method = "glmboost",
                             trControl = control,
-                            tuneGrid = Grid,
                             metric='RMSE',
                             maximize=FALSE)
 
 # Predicción de la variable price_doc
 glmboost.pred <- predict(glmboost.model,test_final)
+
+# Gráfico de rendimiento del modelo gmlboost
+glmboost.model$bestTune
+plot(glmboost.model)
 
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
 write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio_final/Datos/submission_glmboost.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
@@ -297,7 +281,7 @@ write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio_fina
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (gbm - Caret)
 ******
 Realizamos las misma operaciones que para el primer modelo
-```{r GBM, echo=FALSE}
+```{r GBM, echo=FALSE, message= FALSE}
 #Grid <- expand.grid(n.trees = seq(50,1000,50), interaction.depth = c(30), shrinkage = c(0.1), n.minobsinnode = 3)
 gbm.model <- train(price_doc ~ .,
                             data = train_final,
@@ -310,6 +294,10 @@ gbm.model <- train(price_doc ~ .,
 # Predicción de la variable price_doc
 gbm.pred <- predict(gbm.model,test_final)
 
+# Gráfico de rendimiento del modelo gbm
+gbm.model$bestTune
+plot(gbm.model)
+
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
 write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio_final/Datos/submission_gbm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
@@ -317,14 +305,19 @@ write.table(data.table(id=test_final$id, price_doc=gbm.pred), "Estudio_final/Dat
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (lm)
 ******
 Realizamos las misma operaciones que para el primer modelo
-```{r LM, echo=FALSE}
+```{r LM, echo=FALSE, message= FALSE}
 lm.model <- train(price_doc ~ .,
                             data = train_final,
                             method = "lm",
-                            trControl = control)
+                            trControl = control,
+                            intercept = TRUE)
 
 # Predicción de la variable price_doc
 lm.pred <- predict(lm.model,test_final)
+
+# Gráfico de rendimiento del modelo lm
+lm.model$bestTune
+summary(lm.model)
 
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
 write.table(data.table(id=test_final$id, price_doc=lm.pred), "Estudio_final/Datos/submission_lm.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
@@ -332,7 +325,7 @@ write.table(data.table(id=test_final$id, price_doc=lm.pred), "Estudio_final/Dato
 ******
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (xgbTree)
 ******
-```{r XGBTREE, echo=FALSE}
+```{r XGBTREE, echo=FALSE, message= FALSE}
 xgbtree.model <- train(price_doc ~ .,
                             data = train_final,
                             method = "xgbTree",
@@ -341,13 +334,17 @@ xgbtree.model <- train(price_doc ~ .,
 # Predicción de la variable price_doc
 xgbtree.pred <- predict(xgbtree.model,test_final)
 
+# Gráfico de rendimiento del modelo xgbtree
+xgbtree.model$bestTune
+plot(xgbtree.model)
+
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
-write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio_final/Datos/submission_xgbtree.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=xgbtree.pred), "Estudio_final/Datos/submission_xgbtree.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
 ******
 ## Selección de variables, elección, construcción y optimización de al menos dos modelos machine Learning supervisados distintos (xgblinear)
 ******
-```{r XGBLINEAR, echo=FALSE}
+```{r XGBLINEAR, echo=FALSE, message= FALSE}
 xgblinear.model <- train(price_doc ~ .,
                             data = train_final,
                             method = "xgbLinear",
@@ -356,23 +353,27 @@ xgblinear.model <- train(price_doc ~ .,
 # Predicción de la variable price_doc
 xgblinear.pred <- predict(xgblinear.model,test_final)
 
+# Gráfico de rendimiento del modelo xgblinear
+xgblinear.model$bestTune
+plot(xgblinear.model)
+
 # Devolvemos los valores id transancción y precio en un fichero tipo csv
-write.table(data.table(id=test_final$id, price_doc=glmboost.pred), "Estudio_final/Datos/submission_xgblinear.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(id=test_final$id, price_doc=xgblinear.pred), "Estudio_final/Datos/submission_xgblinear.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
 ******
 ## Evaluación y comparación de dichos modelos realizados
 ******
 Gracias al paquete Caret podremos comparar los modelos.
-```{r comparation, echo=FALSE}
+```{r comparation, echo=FALSE, message= FALSE}
 models <- list(glmboost.model,gbm.model,lm.model,xgbtree.model,xgblinear.model)
 compar.models <- resamples(models)
 summary(compar.models)
 ```
 ******
-## Gráficos
+## Gráficos comparativo de eficienta de los modelos
 ******
 Mediante el gráfico podemos ver como el modelo 3 (RMSE - Rsquared) tiene una precisión mayor que los otros modelos.
-```{r graphics, echo=FALSE}
+```{r graphics, echo=FALSE, message= FALSE}
 dotplot(compar.models)
 
 #Paramos la paralelización
