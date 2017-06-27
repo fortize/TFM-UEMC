@@ -13,7 +13,7 @@ output:
 ******
 ## Carga de librerias
 ******
-Load libraries (ggplot2,data.table,caret,corrplot,lubridate,dplyr,doParallel,sp,rgdal,magrittr,plyr)
+Load libraries (ggplot2,data.table,caret,corrplot,lubridate,dplyr,doParallel,ggmap)
 ```{r librerias, include=FALSE}
 if(! "ggplot2" %in% installed.packages()) 
   install.packages("ggplot2",dependencies = TRUE)
@@ -35,6 +35,9 @@ library(dplyr)
 if(! "doParallel" %in% installed.packages()) 
   install.packages("doParallel",dependencies = TRUE)
 library(doParallel)		# parallel processing
+if(! "ggmap" %in% installed.packages()) 
+  install.packages("ggmap",dependencies = TRUE)
+library(ggmap)
 
 #Limpiamos el espacio de trabajo
 rm(list = ls());
@@ -73,8 +76,12 @@ coord <- fread(file=paste(directorio_trabajo,"/coord.csv",sep = "", collapse = N
 
 #Resumen del dataset train
 dim(train)
-#summary(train) Comentado para evitar que el informe sea muy extenso.
-str(train)
+
+#Comentado para evitar que el informe sea muy extenso.
+#head(train)
+#tail(train)
+#summary(train)
+#str(train)
 
 # Precios por año
 boxplot(train$price_doc~year(train$timestamp),data=train, main="Precios x año", xlab="Año", ylab="Precio")
@@ -87,6 +94,7 @@ train %>%
     group_by(sub_area) %>%
     summarize(n=n()) %>%
     ggplot(aes(x=reorder(sub_area, n), y=n)) + 
+    #xlim(0,2000) +
     geom_bar(stat='identity') + 
     coord_flip() +
     labs(y='Numero de transacciones', x='Sub-Area', title='Número de transacciones por Area')
@@ -108,9 +116,6 @@ ggplot(aes(x=build_year, y=price_doc), data=train) +
 ggplot(train, aes(x = num_room)) + geom_histogram(fill='red', bins=20) + 
     xlim(0,12) + 
     ggtitle('Distribución de habitaciones')
-
-# Precios x area
-ggplot(train, aes(x = price_doc, y = sub_area)) + geom_boxplot()
 
 # Tipo producto x metro cuadrado
 ggplot(train, aes(x = product_type, y = life_sq)) + geom_boxplot() + coord_flip()
@@ -134,9 +139,21 @@ macro %>%
     ggtitle('Depositos medios en el tiempo')
 ```
 ******
+## Mapa de transacciones en la región
+******
+```{r mapa, echo=FALSE, message= FALSE}
+# Obtenemos el mapa de Moscow
+Moscow <- get_map(location = 'Moscow', zoom = 9)
+#Unimos las coordenados y las transacciones mediante el campo sub-area
+mapa <- merge(train,coord,"sub_area")
+p <- ggmap(Moscow)
+p <- p + geom_point(data=mapa, aes(mapa$latitude, mapa$longitude))
+p
+```
+
+******
 ## Limpieza del dataset y selección de datos
 ******
-
 ```{r clean, echo=FALSE, message= FALSE}
 # Limpiamos las variables del dataset train que vamos a emplear
 train$full_sq[is.na(train$full_sq)] <- 0
